@@ -1,11 +1,7 @@
-use async_trait::async_trait;
 use reqwest::Client;
 use std::time::Duration;
-
-#[derive(Debug)]
-pub enum TrustonError {
-    Http(String),
-}
+use async_trait::async_trait;
+use crate::utils::errors::TrustonError;
 
 #[async_trait]
 pub trait TritonClient {
