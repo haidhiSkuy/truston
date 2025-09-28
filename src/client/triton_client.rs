@@ -47,3 +47,28 @@ impl TritonClient for TritonRestClient {
         Ok(resp.status().is_success())
     }
 }
+
+// ############################ UNIT TEST ################################
+#[cfg(test)]
+mod tests {
+    use core::panic;
+
+    use super::*;
+    use tokio;
+
+    #[tokio::test]
+    async fn test_is_server_live() {
+        crate::init_tracing();
+
+        let client = TritonRestClient::new("http://localhost:50000");
+        let result = client.is_server_live().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_is_server_not_live() {
+        let client = TritonRestClient::new("http://localhost:12345");
+        let result = client.is_server_live().await;
+        assert!(matches!(result, Err(TrustonError::Http(_))));
+    }
+}
