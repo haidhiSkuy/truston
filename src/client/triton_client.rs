@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use crate::utils::errors::TrustonError;
 
 #[async_trait]
-pub trait TritonClient {
+pub trait TritonClient: Send + Sync {
     async fn is_server_live(&self) -> Result<bool, TrustonError>;
 }
 
@@ -36,19 +36,25 @@ impl TritonClient for TritonRestClient {
             .get(&url)
             .send()
             .await
-            .map_err(|e| TrustonError::Http(e.to_string()))?;
+            .map_err(|e| TrustonError::Http(format!("Request failed to send: {}", e)))?;
         
         tracing::info!("is_server_live: {} -> {}", url, resp.status());
 
-        Ok(resp.status().is_success())
+        let status = resp.status();
+        if status.is_success() {
+            Ok(true) 
+        } else {
+            let status_code = status.as_u16();
+            let body_text = resp.text().await.unwrap_or_else(|_| "No response body".to_string());
+            let error_message = format!("Server is dead or unhealthy. Status: {}. Response body: {}", status_code, body_text);
+            Err(TrustonError::HttpErrorResponse(status_code, error_message))
+        }
     }
 }
 
 // ############################ UNIT TEST ################################
 #[cfg(test)]
 mod tests {
-    use core::panic;
-
     use super::*;
     use tokio;
 
@@ -62,7 +68,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_is_server_not_live() {
+    async fn server_unreachable() {
         let client = TritonRestClient::new("http://localhost:12345");
         let result = client.is_server_live().await;
         assert!(matches!(result, Err(TrustonError::Http(_))));
