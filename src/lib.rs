@@ -1,5 +1,6 @@
-mod client;
-mod utils;
+pub mod client;
+pub mod utils;
+pub mod models;
 
 use tracing_subscriber;
 
@@ -8,4 +9,5 @@ pub fn init_tracing() {
         .with_max_level(tracing::Level::INFO)
         .with_target(false) 
         .init();
+    
 }
