@@ -54,3 +54,35 @@ impl InferInput {
             }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_type_str() {
+        assert_eq!(InferData::Bool(vec![true, false]).get_type_str(), "BOOL");
+        assert_eq!(InferData::U8(vec![1, 2, 3]).get_type_str(), "UINT8");
+        assert_eq!(InferData::I32(vec![42]).get_type_str(), "INT32");
+        assert_eq!(InferData::F64(vec![3.14]).get_type_str(), "FP64");
+        assert_eq!(InferData::String(vec!["hello".into()]).get_type_str(), "STRING");
+        assert_eq!(InferData::Bf16(vec![0u16, 1u16]).get_type_str(), "BF16");
+    }
+
+    #[test]
+    fn test_infer_input_new() {
+        let input = InferInput::new(
+            "my_input".to_string(),
+            vec![1, 3, 224, 224],
+            InferData::F32(vec![0.1, 0.2, 0.3]),
+        );
+
+        assert_eq!(input.input_name, "my_input");
+        assert_eq!(input.input_shape, vec![1, 3, 224, 224]);
+
+        match input.input_data {
+            InferData::F32(values) => assert_eq!(values, vec![0.1, 0.2, 0.3]),
+            _ => panic!("Expected F32 variant"),
+        }
+    }
+}
