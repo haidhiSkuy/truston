@@ -35,6 +35,67 @@ impl InferData {
     }
 }
 
+pub trait IntoInferData {
+    fn into_infer_data(self) -> InferData;
+}
+
+impl IntoInferData for Vec<bool> {
+    fn into_infer_data(self) -> InferData {
+        InferData::Bool(self)
+    }
+}
+impl IntoInferData for Vec<u8> {
+    fn into_infer_data(self) -> InferData {
+        InferData::U8(self)
+    }
+}
+impl IntoInferData for Vec<u16> {
+    fn into_infer_data(self) -> InferData {
+        InferData::U16(self)
+    }
+}
+impl IntoInferData for Vec<u64> {
+    fn into_infer_data(self) -> InferData {
+        InferData::U64(self)
+    }
+}
+impl IntoInferData for Vec<i8> {
+    fn into_infer_data(self) -> InferData {
+        InferData::I8(self)
+    }
+}
+impl IntoInferData for Vec<i16> {
+    fn into_infer_data(self) -> InferData {
+        InferData::I16(self)
+    }
+}
+impl IntoInferData for Vec<i32> {
+    fn into_infer_data(self) -> InferData {
+        InferData::I32(self)
+    }
+}
+impl IntoInferData for Vec<i64> {
+    fn into_infer_data(self) -> InferData {
+        InferData::I64(self)
+    }
+}
+impl IntoInferData for Vec<f32> {
+    fn into_infer_data(self) -> InferData {
+        InferData::F32(self)
+    }
+}
+impl IntoInferData for Vec<f64> {
+    fn into_infer_data(self) -> InferData {
+        InferData::F64(self)
+    }
+}
+impl IntoInferData for Vec<String> {
+    fn into_infer_data(self) -> InferData {
+        InferData::String(self)
+    }
+}
+
+
 #[derive(Debug)]
 pub struct InferInput {
     pub input_name: String,
@@ -55,13 +116,17 @@ impl InferInput {
             }
     }
 
-    pub fn from_ndarray(name: impl Into<String>, arr: ArrayD<f32>) -> Self {
+    pub fn from_ndarray<T>(name: impl Into<String>, arr: ArrayD<T>) -> Self
+    where
+        T: Clone + 'static,
+        Vec<T>: IntoInferData,
+    {
         let shape = arr.shape().to_vec();
         let (data, _) = arr.into_raw_vec_and_offset();
         Self {
             input_name: name.into(),
             input_shape: shape,
-            input_data: InferData::F32(data),
+            input_data: data.into_infer_data(),
         }
     }
 }
