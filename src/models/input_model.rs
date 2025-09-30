@@ -1,3 +1,5 @@
+use ndarray::ArrayD;
+
 #[derive(Debug)]
 pub enum InferData {
     Bool(Vec<bool>),
@@ -13,7 +15,6 @@ pub enum InferData {
     String(Vec<String>),
     Bf16(Vec<u16>),
 }
-
 
 impl InferData {
     pub fn get_type_str(&self) -> &'static str {
@@ -52,6 +53,16 @@ impl InferInput {
                 input_shape,
                 input_data,
             }
+    }
+
+    pub fn from_ndarray(name: impl Into<String>, arr: ArrayD<f32>) -> Self {
+        let shape = arr.shape().to_vec();
+        let data = arr.into_raw_vec();
+        Self {
+            input_name: name.into(),
+            input_shape: shape,
+            input_data: InferData::F32(data),
+        }
     }
 }
 
