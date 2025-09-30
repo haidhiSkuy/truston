@@ -1,17 +1,12 @@
 use std::vec;
 
-use truston::models::{InferData, InferInput, DataType}; 
+use truston::models::input_model::{InferData, InferInput}; 
 
 fn main() {
-    let dummy_input = InferData::dummy_data(
-        vec![1, 3, 224, 224], 
-        DataType::FP32, 
+    let dummy_input = InferData::F32(vec![5.0, 5.0, 5.0]);
+    let _input = InferInput::new(
+        "input_0".into(), 
+        vec![1, 3], 
+        dummy_input, 
     );
-
-    let _input = InferInput {
-        input_name: "input_0".into(), 
-        input_shape: vec![1, 3, 224, 224], 
-        input_type: DataType::FP64, 
-        input_data: dummy_input, 
-    };
 }
