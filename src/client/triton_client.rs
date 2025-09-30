@@ -9,8 +9,8 @@ pub trait TritonClient: Send + Sync {
 }
 
 pub struct TritonRestClient {
-    base_url: String,
-    http: Client,
+    pub base_url: String,
+    pub http: Client,
 }
 
 impl TritonRestClient {
