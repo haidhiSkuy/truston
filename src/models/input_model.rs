@@ -57,7 +57,7 @@ impl InferInput {
 
     pub fn from_ndarray(name: impl Into<String>, arr: ArrayD<f32>) -> Self {
         let shape = arr.shape().to_vec();
-        let data = arr.into_raw_vec();
+        let (data, _) = arr.into_raw_vec_and_offset();
         Self {
             input_name: name.into(),
             input_shape: shape,
