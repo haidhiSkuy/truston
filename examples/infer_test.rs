@@ -1,3 +1,5 @@
+use std::vec;
+
 use tokio; 
 use truston::client::triton_client::TritonRestClient; 
 use ndarray::ArrayD;
@@ -15,14 +17,20 @@ async fn main(){
     //     Err(e) => println!("error: {:#?}", e), 
     // } 
 
-    let arr: ArrayD<f32> = ArrayD::zeros(IxDyn(&[1, 3, 224, 224]));
-    let infer_input = InferInput::from_ndarray("data", arr);
+    let arr_ids: ArrayD<i64> = ArrayD::zeros(IxDyn(&[1, 128]));
+    let input_ids = InferInput::from_ndarray("input_ids", arr_ids);
+
+    let arr_attention_mask: ArrayD<i64> = ArrayD::zeros(IxDyn(&[1, 128]));
+    let input_attention_mask = InferInput::from_ndarray("attention_mask", arr_attention_mask);
+
+
+    let inputs = vec![input_ids, input_attention_mask];
     
-    let res = my_client.infer(infer_input, "mobilenet").await;
-    // match res { 
-    //     Ok(r) => println!("result: {:#?}", r), 
-    //     Err(e) => println!("error: {:#?}", e),
-    // }
+    let res = my_client.infer(inputs, "hierarchical_clf").await;
+    match res { 
+        Ok(r) => println!("result: {:#?}", r), 
+        Err(e) => println!("error: {:#?}", e),
+    }
 
 
 }
