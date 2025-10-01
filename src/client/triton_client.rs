@@ -82,6 +82,9 @@ impl TritonClient for TritonRestClient {
 }
 
 impl TritonRestClient {
+    pub async fn is_server_live(&self) -> Result<bool, TrustonError> {
+        TritonClient::is_server_live(self).await
+    }
 
     /// Converts an `InferInput` into the JSON payload format required by Triton.
     ///
