@@ -59,7 +59,7 @@ impl TritonClient for TritonRestClient {
             .get(&url)
             .send()
             .await
-            .map_err(|e| TrustonError::Http(e))?;
+            .map_err(TrustonError::Http)?;
 
         tracing::info!("is_server_live: {} -> {}", url, resp.status());
 
