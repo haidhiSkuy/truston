@@ -2,7 +2,7 @@ use ndarray::ArrayD;
 use serde::{Deserialize, Serialize};
 
 // ################ INPUT #######################
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum DataType {
     Bool(Vec<bool>),
     U8(Vec<u8>),
@@ -37,6 +37,91 @@ impl DataType {
             DataType::Raw(_) => "none"
         }
     }
+    pub fn as_u8_vec(&self) -> Option<Vec<u8>> {
+        if let DataType::U8(v) = self {
+            Some(v.to_vec())
+        } else {
+            None
+        }
+    }
+    pub fn as_u16_vec(&self) -> Option<Vec<u16>> {
+        if let DataType::U16(v) = self {
+            Some(v.to_vec())
+        } else {
+            None
+        }
+    }
+    pub fn as_u64_vec(&self) -> Option<Vec<u64>> {
+        if let DataType::U64(v) = self {
+            Some(v.to_vec())
+        } else {
+            None
+        }
+    }
+    pub fn as_i8_vec(&self) -> Option<Vec<i8>> {
+        if let DataType::I8(v) = self {
+            Some(v.to_vec())
+        } else {
+            None
+        }
+    }
+    pub fn as_i16_vec(&self) -> Option<Vec<i16>> {
+        if let DataType::I16(v) = self {
+            Some(v.to_vec())
+        } else {
+            None
+        }
+    }
+    pub fn as_i32_vec(&self) -> Option<Vec<i32>> {
+        if let DataType::I32(v) = self {
+            Some(v.to_vec())
+        } else {
+            None
+        }
+    }
+    pub fn as_i64_vec(&self) -> Option<Vec<i64>> {
+        if let DataType::I64(v) = self {
+            Some(v.to_vec())
+        } else {
+            None
+        }
+    }
+    pub fn as_f32_vec(&self) -> Option<Vec<f32>> {
+        if let DataType::F32(v) = self {
+            Some(v.to_vec())
+        } else {
+            None
+        }
+    }
+    pub fn as_f64_vec(&self) -> Option<Vec<f64>> {
+        if let DataType::F64(v) = self {
+            Some(v.to_vec())
+        } else {
+            None
+        }
+    }
+    pub fn as_bool_vec(&self) -> Option<Vec<bool>> {
+        if let DataType::Bool(v) = self {
+            Some(v.to_vec())
+        } else {
+            None
+        }
+    }
+    pub fn as_bf16_vec(&self) -> Option<Vec<u16>> {
+        if let DataType::Bf16(v) = self {
+            Some(v.to_vec())
+        } else {
+            None
+        }
+    }
+    pub fn as_str_vec(&self) -> Option<Vec<String>> {
+        if let DataType::String(v) = self {
+            Some(v.to_vec())
+        } else {
+            None
+        }
+    }
+
 }
 
 pub trait IntoInferData {
@@ -163,7 +248,7 @@ pub struct InferResponse {
 
 
 // ####################### Output forwarded to user ######################
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InferOutput {
     pub name: String,
     pub datatype: String,
@@ -171,7 +256,7 @@ pub struct InferOutput {
     pub data: DataType,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InferResults {
     pub outputs: Vec<InferOutput>, 
 }
