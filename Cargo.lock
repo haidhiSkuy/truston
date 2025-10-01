@@ -1452,7 +1452,7 @@ dependencies = [
 
 [[package]]
 name = "truston"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-trait",
  "futures",
