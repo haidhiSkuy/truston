@@ -7,7 +7,7 @@ use crate::client::io::{
     InferRequest,
     InferResponse,
     InferResults, 
-    TypedInferOutput,
+    InferOutput,
 };
 use crate::utils::errors::TrustonError;
 use num_traits::NumCast;
@@ -134,7 +134,7 @@ impl TritonRestClient {
             };
         
             if let Some(data) = data {
-                converted_outputs.push(TypedInferOutput {
+                converted_outputs.push(InferOutput {
                     name: output.name.clone(),
                     datatype: output.datatype.clone(),
                     shape: output.shape.clone(),

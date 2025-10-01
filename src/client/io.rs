@@ -164,7 +164,7 @@ pub struct InferResponse {
 
 // ####################### Output forwarded to user ######################
 #[derive(Debug)]
-pub struct TypedInferOutput {
+pub struct InferOutput {
     pub name: String,
     pub datatype: String,
     pub shape: Vec<usize>,
@@ -173,7 +173,7 @@ pub struct TypedInferOutput {
 
 #[derive(Debug)]
 pub struct InferResults {
-    pub outputs: Vec<TypedInferOutput>, 
+    pub outputs: Vec<InferOutput>, 
 }
 
 
