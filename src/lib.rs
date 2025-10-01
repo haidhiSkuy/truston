@@ -23,7 +23,7 @@
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     // Create a client
-//!     let client = TritonRestClient::new("http://localhost:8000");
+//!     let client = TritonRestClient::new("http://localhost:50000");
 //!     
 //!     // Check if server is alive
 //!     let is_alive = client.is_server_live().await?;
@@ -124,13 +124,13 @@
 //! # use truston::utils::errors::TrustonError;
 //! # #[tokio::main]
 //! # async fn main() {
-//! let client = TritonRestClient::new("http://localhost:8000");
+//! let client = TritonRestClient::new("http://localhost:50000");
 //!
 //! match client.is_server_live().await {
 //!     Ok(true) => println!("Server is ready"),
 //!     Ok(false) => println!("Server is not ready"),
 //!     Err(TrustonError::Http(msg)) => eprintln!("Connection error: {}", msg),
-//!     Err(TrustonError::HttpErrorResponse(code, msg)) => {
+//!     Err(TrustonError::ServerError{status: code, message: msg}) => {
 //!         eprintln!("Server error {}: {}", code, msg)
 //!     }
 //!     Err(e) => eprintln!("Error: {:?}", e),
@@ -139,8 +139,6 @@
 //! ```
 //!
 //! ## Requirements
-//!
-//! - Rust 1.70 or later
 //! - Triton Inference Server (any version supporting v2 REST API)
 //!
 //! ## License
