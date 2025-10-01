@@ -6,37 +6,12 @@ use crate::client::io::{
     TritonServerResponse,
     InferRequest,
     InferResponse,
+    InferResults, 
+    TypedInferOutput,
 };
 use crate::utils::errors::TrustonError;
 use num_traits::NumCast;
 use serde_json;
-
-
-
-
-// Output forwarded to user
-#[derive(Debug)]
-
-pub enum TypedData {
-    F32(Vec<f32>),
-    I64(Vec<i64>),
-    U16(Vec<u16>),
-    Str(Vec<String>),
-    Raw(serde_json::Value),
-}
-#[derive(Debug)]
-
-pub struct TypedInferOutput {
-    pub name: String,
-    pub datatype: String,
-    pub shape: Vec<usize>,
-    pub data: TypedData,
-}
-
-#[derive(Debug)]
-pub struct InferResults {
-    pub outputs: Vec<TypedInferOutput>, 
-}
 
 
 impl TritonRestClient {
@@ -57,6 +32,7 @@ impl TritonRestClient {
             DataType::F64(v) => ("FP64", serde_json::json!(v)),
             DataType::String(v) => ("STRING", serde_json::json!(v)),
             DataType::Bf16(v) => ("BF16", serde_json::json!(v)),
+            DataType::Raw(v) => ("none", serde_json::json!(v)),
         };
 
         InferInputPayload {
@@ -96,6 +72,17 @@ impl TritonRestClient {
             _ => None,
         }
     }
+    fn convert_output_string(&self, output_data: &TritonServerResponse) -> Option<Vec<String>> {
+        match output_data.datatype.as_str() {
+            "STRING" => output_data.data.as_array().map(|arr| {
+                arr.iter()
+                    .filter_map(|item| item.as_str().map(|s| s.to_string()))
+                    .collect()
+            }),
+            _ => None,
+        }
+    }
+
 
     pub async fn infer(
         &self,
@@ -131,10 +118,19 @@ impl TritonRestClient {
         let mut converted_outputs = Vec::new();
         for output in &response_struct.outputs {
             let data = match output.datatype.as_str() {
-                "FP32" => self.convert_output::<f32>(output).map(TypedData::F32),
-                "INT64" => self.convert_output::<i64>(output).map(TypedData::I64),
-                "UINT16" => self.convert_output::<u16>(output).map(TypedData::U16),
-                _ => Some(TypedData::Raw(output.data.clone())),
+                "UINT8" => self.convert_output::<u8>(output).map(DataType::U8), 
+                "UINT16" => self.convert_output::<u16>(output).map(DataType::U16),
+                "UINT64" => self.convert_output::<u64>(output).map(DataType::U64),
+                "INT8" => self.convert_output::<i8>(output).map(DataType::I8),
+                "INT16" => self.convert_output::<i16>(output).map(DataType::I16),
+                "INT32" => self.convert_output::<i32>(output).map(DataType::I32),
+                "INT64" => self.convert_output::<i64>(output).map(DataType::I64),
+                "FP32" => self.convert_output::<f32>(output).map(DataType::F32),
+                "FP64" => self.convert_output::<f64>(output).map(DataType::F64),
+                "BF16" => self.convert_output::<u16>(output).map(DataType::Bf16),
+                "STRING" => self.convert_output_string(output).map(DataType::String), 
+            
+                _ => Some(DataType::Raw(output.data.clone())),
             };
         
             if let Some(data) = data {
