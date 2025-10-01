@@ -74,7 +74,7 @@ impl DataType {
     ///
     /// # Example
     /// ```
-    /// use truston::DataType;
+    /// use truston::client::io::DataType;
     /// let dtype = DataType::F32(vec![0.1, 0.2]);
     /// assert_eq!(dtype.get_type_str(), "FP32");
     /// ```
@@ -104,7 +104,7 @@ impl DataType {
     ///
     /// # Example
     /// ```
-    /// use truston::DataType;
+    /// use truston::client::io::DataType;
     /// let dtype = DataType::U8(vec![1, 2, 3]);
     /// assert_eq!(dtype.as_u8_vec(), Some(vec![1, 2, 3]));
     ///
@@ -436,7 +436,7 @@ impl IntoInferData for Vec<String> {
 ///
 /// Creating manually:
 /// ```
-/// use your_crate::io::{InferInput, DataType};
+/// use truston::client::io::{InferInput, DataType};
 ///
 /// let input = InferInput::new(
 ///     "input_tensor".into(),
@@ -449,7 +449,7 @@ impl IntoInferData for Vec<String> {
 /// Creating directly from an ndarray:
 /// ```
 /// use ndarray::array;
-/// use your_crate::io::InferInput;
+/// use truston::client::io::InferInput;
 ///
 /// let arr = array![[1.0f32, 2.0], [3.0, 4.0]].into_dyn();
 /// let input = InferInput::from_ndarray("matrix_input", arr);
