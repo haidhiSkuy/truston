@@ -1,7 +1,7 @@
+use crate::utils::errors::TrustonError;
+use async_trait::async_trait;
 use reqwest::Client;
 use std::time::Duration;
-use async_trait::async_trait;
-use crate::utils::errors::TrustonError;
 
 #[async_trait]
 pub trait TritonClient: Send + Sync {
@@ -32,21 +32,28 @@ impl TritonClient for TritonRestClient {
     async fn is_server_live(&self) -> Result<bool, TrustonError> {
         let url = format!("{}/v2/health/ready", self.base_url);
 
-        let resp = self.http
+        let resp = self
+            .http
             .get(&url)
             .send()
             .await
             .map_err(|e| TrustonError::Http(format!("Request failed to send: {}", e)))?;
-        
+
         tracing::info!("is_server_live: {} -> {}", url, resp.status());
 
         let status = resp.status();
         if status.is_success() {
-            Ok(true) 
+            Ok(true)
         } else {
             let status_code = status.as_u16();
-            let body_text = resp.text().await.unwrap_or_else(|_| "No response body".to_string());
-            let error_message = format!("Server is dead or unhealthy. Status: {}. Response body: {}", status_code, body_text);
+            let body_text = resp
+                .text()
+                .await
+                .unwrap_or_else(|_| "No response body".to_string());
+            let error_message = format!(
+                "Server is dead or unhealthy. Status: {}. Response body: {}",
+                status_code, body_text
+            );
             Err(TrustonError::HttpErrorResponse(status_code, error_message))
         }
     }
