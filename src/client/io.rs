@@ -1,3 +1,8 @@
+//! Inference operations for Triton Inference Server.
+//!
+//! This module implements the core inference functionality, including
+//! input preparation, request serialization, and output parsing.
+
 use ndarray::ArrayD;
 use serde::{Deserialize, Serialize};
 

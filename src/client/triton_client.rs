@@ -1,3 +1,9 @@
+//! Triton Inference Server client implementations.
+//!
+//! This module provides the main client interface for communicating with
+//! Triton Inference Server via its REST API.
+
+
 use reqwest::Client;
 use std::time::Duration;
 use async_trait::async_trait;
@@ -15,6 +21,10 @@ use crate::client::io::{
 use num_traits::NumCast;
 use serde_json;
 
+/// Trait defining the core operations for a Triton Inference Server client.
+///
+/// This trait can be implemented for different communication protocols
+/// (REST, gRPC, etc.). Currently, only REST is implemented via `TritonRestClient`.
 #[async_trait]
 pub trait TritonClient: Send + Sync {
     async fn is_server_live(&self) -> Result<bool, TrustonError>;
@@ -72,6 +82,12 @@ impl TritonClient for TritonRestClient {
 }
 
 impl TritonRestClient {
+
+    /// Converts an `InferInput` into the JSON payload format required by Triton.
+    ///
+    /// This is an internal method that handles the conversion of Rust types
+    /// to Triton's JSON format.
+    /// 
     fn convert_input<'a>(
         &self,
         infer_input: &'a InferInput,
@@ -100,6 +116,9 @@ impl TritonRestClient {
         }
     }
 
+    /// Converts Triton's JSON response data to a typed Rust vector.
+    ///
+    /// This is an internal method that uses `NumCast` for safe numeric conversions.
     fn convert_output<T: NumCast>(&self, output_data: &TritonServerResponse) -> Option<Vec<T>> {
         match output_data.datatype.as_str() {
             "FP32" | "FP64" => output_data.data.as_array().map(|arr| {
