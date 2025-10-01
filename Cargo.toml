@@ -9,6 +9,7 @@ license = "MIT"
 repository = "https://github.com/haidhiSkuy/truston"
 documentation = "https://docs.rs/truston"
 readme = "README.md"
+description = "A high-performance Rust client library for NVIDIA Triton Inference Server"
 
 [dependencies]
 async-trait = "0.1.89"
