@@ -1,2 +1,2 @@
-pub mod triton_client;
 pub mod infer;
+pub mod triton_client;
