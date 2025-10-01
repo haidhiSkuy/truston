@@ -237,7 +237,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 Licensed:
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+- MIT license ([LICENSE-MIT](LICENSE-MIT))
 
 
 ## Acknowledgments
