@@ -1,13 +1,14 @@
 use crate::client::triton_client::TritonRestClient;
-use crate::models::input_model::{InferInput, InferData}; 
-use crate::utils::errors::TrustonError; 
-use serde::{Serialize, Deserialize};
+use crate::models::input_model::{InferData, InferInput};
+use crate::utils::errors::TrustonError;
+use num_traits::NumCast;
+use serde::{Deserialize, Serialize};
 use serde_json;
 
 // Input
 #[derive(Serialize)]
 struct InferRequest<'a, T> {
-    inputs: Vec<InferInputPayload<'a, T>>
+    inputs: Vec<InferInputPayload<'a, T>>,
 }
 
 #[derive(Serialize)]
@@ -18,36 +19,62 @@ struct InferInputPayload<'a, T> {
     data: T,
 }
 
-// Output
-#[derive(Debug, Deserialize)]
-pub struct InferOutputData {
+// Output from Triton Server
+#[derive(Debug, Deserialize, Clone)]
+pub struct TritonServerResponse {
     pub name: String,
     pub shape: Vec<usize>,
     pub datatype: String,
     pub data: serde_json::Value,
 }
-
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct InferResponse {
-    pub outputs: Vec<InferOutputData>, 
+    pub outputs: Vec<TritonServerResponse>,
+}
+
+// Output forwarded to user
+#[derive(Debug)]
+
+pub enum TypedData {
+    F32(Vec<f32>),
+    I64(Vec<i64>),
+    U16(Vec<u16>),
+    Str(Vec<String>),
+    Raw(serde_json::Value),
+}
+#[derive(Debug)]
+
+pub struct TypedInferOutput {
+    pub name: String,
+    pub datatype: String,
+    pub shape: Vec<usize>,
+    pub data: TypedData,
+}
+
+#[derive(Debug)]
+pub struct InferResults {
+    pub outputs: Vec<TypedInferOutput>, 
 }
 
 
 impl TritonRestClient {
-    fn convert_input<'a>(&self, infer_input: &'a InferInput) -> InferInputPayload<'a, serde_json::Value> {
+    fn convert_input<'a>(
+        &self,
+        infer_input: &'a InferInput,
+    ) -> InferInputPayload<'a, serde_json::Value> {
         let (datatype, data_json) = match &infer_input.input_data {
-            InferData::Bool(v)   => ("BOOL", serde_json::json!(v)),
-            InferData::U8(v)     => ("UINT8", serde_json::json!(v)),
-            InferData::U16(v)    => ("UINT16", serde_json::json!(v)),
-            InferData::U64(v)    => ("UINT64", serde_json::json!(v)),
-            InferData::I8(v)     => ("INT8", serde_json::json!(v)),
-            InferData::I16(v)    => ("INT16", serde_json::json!(v)),
-            InferData::I32(v)    => ("INT32", serde_json::json!(v)),
-            InferData::I64(v)    => ("INT64", serde_json::json!(v)),
-            InferData::F32(v)    => ("FP32", serde_json::json!(v)),
-            InferData::F64(v)    => ("FP64", serde_json::json!(v)),
+            InferData::Bool(v) => ("BOOL", serde_json::json!(v)),
+            InferData::U8(v) => ("UINT8", serde_json::json!(v)),
+            InferData::U16(v) => ("UINT16", serde_json::json!(v)),
+            InferData::U64(v) => ("UINT64", serde_json::json!(v)),
+            InferData::I8(v) => ("INT8", serde_json::json!(v)),
+            InferData::I16(v) => ("INT16", serde_json::json!(v)),
+            InferData::I32(v) => ("INT32", serde_json::json!(v)),
+            InferData::I64(v) => ("INT64", serde_json::json!(v)),
+            InferData::F32(v) => ("FP32", serde_json::json!(v)),
+            InferData::F64(v) => ("FP64", serde_json::json!(v)),
             InferData::String(v) => ("STRING", serde_json::json!(v)),
-            InferData::Bf16(v)   => ("BF16", serde_json::json!(v)),
+            InferData::Bf16(v) => ("BF16", serde_json::json!(v)),
         };
 
         InferInputPayload {
@@ -58,38 +85,85 @@ impl TritonRestClient {
         }
     }
 
-    pub async fn infer(&self, inputs: Vec<InferInput>, model_name: &str) -> Result<InferResponse, TrustonError> {
+    fn convert_output<T: NumCast>(&self, output_data: &TritonServerResponse) -> Option<Vec<T>> {
+        match output_data.datatype.as_str() {
+            "FP32" | "FP64" => output_data.data.as_array().map(|arr| {
+                arr.iter()
+                    .filter_map(|item| item.as_f64())
+                    .filter_map(|num| NumCast::from(num))
+                    .collect()
+            }),
+            "UINT8" | "UINT16" | "UINT32" | "UINT64" => output_data.data.as_array().map(|arr| {
+                arr.iter()
+                    .filter_map(|item| item.as_u64())
+                    .filter_map(|num| NumCast::from(num))
+                    .collect()
+            }),
+            "INT8" | "INT16" | "INT32" | "INT64" => output_data.data.as_array().map(|arr| {
+                arr.iter()
+                    .filter_map(|item| item.as_i64())
+                    .filter_map(|num| NumCast::from(num))
+                    .collect()
+            }),
+            "BOOL" => output_data.data.as_array().map(|arr| {
+                arr.iter()
+                    .filter_map(|item| item.as_bool())
+                    .filter_map(|b| NumCast::from(b as u8))
+                    .collect()
+            }),
+            _ => None,
+        }
+    }
+
+    pub async fn infer(
+        &self,
+        inputs: Vec<InferInput>,
+        model_name: &str,
+    ) -> Result<InferResults, TrustonError> {
         let url = format!("{}/v2/models/{}/infer", self.base_url, model_name);
 
-        let input_payloads: Vec<_> = inputs
-            .iter()
-            .map(|inp| self.convert_input(inp))
-            .collect();
+        let input_payloads: Vec<_> = inputs.iter().map(|inp| self.convert_input(inp)).collect();
 
         let request = InferRequest {
-            inputs: input_payloads
+            inputs: input_payloads,
         };
 
-        let resp = self.http
-        .post(&url)
-        .json(&request)
-        .send()
-        .await?;
+        let resp = self.http.post(&url).json(&request).send().await?;
 
         let status = resp.status();
 
         if !status.is_success() {
-            let error_body = resp.text().await.unwrap_or_else(|_| "Unknown error body".to_string());
+            let error_body = resp
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error body".to_string());
             return Err(TrustonError::InferRequestError(error_body));
         }
-    
+
         let response_struct: InferResponse = resp
             .json::<InferResponse>()
             .await
-            .map_err(|e| TrustonError::InferParseError(e.to_string()))?; 
+            .map_err(|e| TrustonError::InferParseError(e.to_string()))?;
 
-        Ok(response_struct)
+ 
+        let mut converted_outputs = Vec::new();
+        for output in &response_struct.outputs {
+            let data = match output.datatype.as_str() {
+                "FP32" => self.convert_output::<f32>(output).map(TypedData::F32),
+                "INT64" => self.convert_output::<i64>(output).map(TypedData::I64),
+                "UINT16" => self.convert_output::<u16>(output).map(TypedData::U16),
+                _ => Some(TypedData::Raw(output.data.clone())),
+            };
+        
+            if let Some(data) = data {
+                converted_outputs.push(TypedInferOutput {
+                    name: output.name.clone(),
+                    datatype: output.datatype.clone(),
+                    shape: output.shape.clone(),
+                    data,
+                });
+            }
+        }
+        Ok(InferResults { outputs: converted_outputs })
     }
 }
-
-
