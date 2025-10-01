@@ -37,6 +37,7 @@ impl DataType {
             DataType::Raw(_) => "none"
         }
     }
+    // vec
     pub fn as_u8_vec(&self) -> Option<Vec<u8>> {
         if let DataType::U8(v) = self {
             Some(v.to_vec())
@@ -117,6 +118,92 @@ impl DataType {
     pub fn as_str_vec(&self) -> Option<Vec<String>> {
         if let DataType::String(v) = self {
             Some(v.to_vec())
+        } else {
+            None
+        }
+    }   
+
+    // Ndarray
+    pub fn to_ndarray_bool(&self, shape: &[usize]) -> Option<ArrayD<bool>> {
+        if let DataType::Bool(v) = self {
+            ArrayD::from_shape_vec(shape, v.clone()).ok()
+        } else {
+            None
+        }
+    }
+    pub fn to_ndarray_u8(&self, shape: &[usize]) -> Option<ArrayD<u8>> {
+        if let DataType::U8(v) = self {
+            ArrayD::from_shape_vec(shape, v.clone()).ok()
+        } else {
+            None
+        }
+    }
+    pub fn to_ndarray_u16(&self, shape: &[usize]) -> Option<ArrayD<u16>> {
+        if let DataType::U16(v) = self {
+            ArrayD::from_shape_vec(shape, v.clone()).ok()
+        } else {
+            None
+        }
+    }
+    pub fn to_ndarray_u64(&self, shape: &[usize]) -> Option<ArrayD<u64>> {
+        if let DataType::U64(v) = self {
+            ArrayD::from_shape_vec(shape, v.clone()).ok()
+        } else {
+            None
+        }
+    }
+    pub fn to_ndarray_i8(&self, shape: &[usize]) -> Option<ArrayD<i8>> {
+        if let DataType::I8(v) = self {
+            ArrayD::from_shape_vec(shape, v.clone()).ok()
+        } else {
+            None
+        }
+    }
+    pub fn to_ndarray_i16(&self, shape: &[usize]) -> Option<ArrayD<i16>> {
+        if let DataType::I16(v) = self {
+            ArrayD::from_shape_vec(shape, v.clone()).ok()
+        } else {
+            None
+        }
+    }
+    pub fn to_ndarray_i32(&self, shape: &[usize]) -> Option<ArrayD<i32>> {
+        if let DataType::I32(v) = self {
+            ArrayD::from_shape_vec(shape, v.clone()).ok()
+        } else {
+            None
+        }
+    }
+    pub fn to_ndarray_i64(&self, shape: &[usize]) -> Option<ArrayD<i64>> {
+        if let DataType::I64(v) = self {
+            ArrayD::from_shape_vec(shape, v.clone()).ok()
+        } else {
+            None
+        }
+    }
+    pub fn to_ndarray_f32(&self, shape: &[usize]) -> Option<ArrayD<f32>> {
+        if let DataType::F32(v) = self {
+            ArrayD::from_shape_vec(shape, v.clone()).ok()
+        } else {
+            None
+        }
+    }
+    pub fn to_ndarray_f64(&self, shape: &[usize]) -> Option<ArrayD<f64>> {
+        if let DataType::F64(v) = self {
+            ArrayD::from_shape_vec(shape, v.clone()).ok()
+        } else {
+            None
+        }
+    }
+    pub fn to_ndarray_string(&self, shape: &[usize]) -> Option<ArrayD<String>> {
+        if let DataType::String(v) = self {
+            ArrayD::from_shape_vec(shape, v.clone()).ok()
+        } else {
+            None
+        }
+    }
+    pub fn to_ndarray_bf16(&self, shape: &[usize]) -> Option<ArrayD<u16>> {
+        if let DataType::Bf16(v) = self {
+            ArrayD::from_shape_vec(shape, v.clone()).ok()
         } else {
             None
         }
