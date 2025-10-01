@@ -16,6 +16,7 @@ pub enum DataType {
     F64(Vec<f64>),
     String(Vec<String>),
     Bf16(Vec<u16>),
+    Raw(serde_json::Value),
 }
 
 impl DataType {
@@ -33,6 +34,7 @@ impl DataType {
             DataType::F64(_) => "FP64",
             DataType::String(_) => "STRING",
             DataType::Bf16(_) => "BF16",
+            DataType::Raw(_) => "none"
         }
     }
 }
@@ -160,10 +162,22 @@ pub struct InferResponse {
 }
 
 
+// ####################### Output forwarded to user ######################
+#[derive(Debug)]
+pub struct TypedInferOutput {
+    pub name: String,
+    pub datatype: String,
+    pub shape: Vec<usize>,
+    pub data: DataType,
+}
+
+#[derive(Debug)]
+pub struct InferResults {
+    pub outputs: Vec<TypedInferOutput>, 
+}
 
 
-
-
+// ######################## UNIT TEST ###################
 #[cfg(test)]
 mod tests {
     use super::*;
