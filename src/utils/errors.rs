@@ -1,139 +1,67 @@
-//! Error types for Truston operations.
-//!
-//! This module defines all error types that can occur when using the Truston client.
-
 use std::fmt;
 
-/// The main error type for Truston operations.
+/// Custom error type for Truston client operations.
 ///
-/// All operations in Truston return `Result<T, TrustonError>` for comprehensive
-/// error handling.
-///
-/// # Examples
-///
-/// ```no_run
-/// use truston::client::triton_client::TritonRestClient;
-/// use truston::utils::errors::TrustonError;
-///
-/// #[tokio::main]
-/// async fn main() {
-///     let client = TritonRestClient::new("http://localhost:8000");
-///     
-///     match client.is_server_live().await {
-///         Ok(_) => println!("Success!"),
-///         Err(TrustonError::Http(msg)) => {
-///             eprintln!("Network error: {}", msg);
-///         }
-///         Err(TrustonError::HttpErrorResponse(code, msg)) => {
-///             eprintln!("Server returned {}: {}", code, msg);
-///         }
-///         Err(e) => {
-///             eprintln!("Other error: {:?}", e);
-///         }
-///     }
-/// }
-/// ```
-/// 
-/// 
+/// This enum represents all possible error conditions that can occur
+/// while interacting with a Triton Inference Server via HTTP.
 #[derive(Debug)]
 pub enum TrustonError {
-    /// HTTP connection or network error.
+    /// Wraps any underlying HTTP/network error from [`reqwest`].
     ///
-    /// This error occurs when the request cannot be sent to the server,
-    /// typically due to network issues, DNS failures, or connection timeouts.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use truston::utils::errors::TrustonError;
-    ///
-    /// let error = TrustonError::Http("Connection refused".to_string());
-    /// println!("{:?}", error);
-    /// ```
+    /// This usually indicates a failed connection, timeout, or DNS issue.
     Http(reqwest::Error),
 
-    // HTTP error response from the server.
+    /// Server responded with a non-success HTTP status code.
     ///
-    /// This error occurs when the server returns a non-success status code
-    /// (4xx or 5xx). The tuple contains the status code and error message.
+    /// This is used when the server returns a valid response
+    /// but indicates an error condition (e.g., 400, 404, 500).
     ///
-    /// # Fields
+    /// - `status`: HTTP status code returned by the server.
+    /// - `message`: Optional error message extracted from the response body.
+    ServerError {
+        /// HTTP status code returned by the server.
+        status: u16,
+        /// Error message returned by the server.
+        message: String,
+    },
+
+    /// Error occurred during inference logic.
     ///
-    /// * `0` - HTTP status code (e.g., 404, 500)
-    /// * `1` - Error message from the server
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use truston::utils::errors::TrustonError;
-    ///
-    /// let error = TrustonError::ServerError(
-    ///     404,
-    ///     "Model not found".to_string()
-    /// );
-    /// 
-    /// if let TrustonError::ServerError(code, msg) = error {
-    ///     println!("Server error {}: {}", code, msg);
-    /// }
-    /// ```
-    ServerError { status: u16, message: String },
-    
-    // Inference request was rejected by the server.
-    ///
-    /// This error occurs when the server rejects the inference request,
-    /// typically due to invalid inputs, model errors, or server configuration issues.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use truston::utils::errors::TrustonError;
-    ///
-    /// let error = TrustonError::InferenceError(
-    ///     "Invalid input shape".to_string()
-    /// );
-    /// ```
+    /// This is not a transport or protocol error, but a logical
+    /// issue during the inference process (e.g., invalid model input).
     InferenceError(String),
 
-    /// Failed to parse the inference response.
+    /// Failed to parse server response or data.
     ///
-    /// This error occurs when the response from the server cannot be parsed
-    /// into the expected format, typically indicating a protocol mismatch or
-    /// malformed response.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use truston::utils::errors::TrustonError;
-    ///
-    /// let error = TrustonError::ParseError(
-    ///     "Expected JSON array".to_string()
-    /// );
-    /// ```
+    /// Typically occurs when the server returns malformed JSON
+    /// or unexpected response fields.
     ParseError(String),
 }
 
 impl fmt::Display for TrustonError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Http(e) => write!(f, "HTTP error: {}", e),
-            Self::ServerError { status, message } => 
-                write!(f, "Server error {}: {}", status, message),
-            Self::InferenceError(msg) => write!(f, "Inference error: {}", msg),
-            Self::ParseError(msg) => write!(f, "Parse error: {}", msg),
+            TrustonError::Http(e) => write!(f, "HTTP error: {}", e),
+            TrustonError::ServerError { status, message } => {
+                write!(f, "Server error {}: {}", status, message)
+            }
+            TrustonError::InferenceError(msg) => write!(f, "Inference error: {}", msg),
+            TrustonError::ParseError(msg) => write!(f, "Parse error: {}", msg),
         }
     }
 }
 
 impl From<reqwest::Error> for TrustonError {
+    /// Converts a [`reqwest::Error`] into a [`TrustonError::Http`].
     fn from(e: reqwest::Error) -> Self {
-        Self::Http(e)
+        TrustonError::Http(e)
     }
 }
 
 impl std::error::Error for TrustonError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::Http(e) => Some(e),
+            TrustonError::Http(e) => Some(e),
             _ => None,
         }
     }
