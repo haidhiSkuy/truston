@@ -1,36 +1,18 @@
 use crate::client::triton_client::TritonRestClient;
-use crate::models::input_model::{InferData, InferInput};
+use crate::client::io::{
+    DataType, 
+    InferInput, 
+    InferInputPayload,
+    TritonServerResponse,
+    InferRequest,
+    InferResponse,
+};
 use crate::utils::errors::TrustonError;
 use num_traits::NumCast;
-use serde::{Deserialize, Serialize};
 use serde_json;
 
-// Input
-#[derive(Serialize)]
-struct InferRequest<'a, T> {
-    inputs: Vec<InferInputPayload<'a, T>>,
-}
 
-#[derive(Serialize)]
-struct InferInputPayload<'a, T> {
-    name: &'a str,
-    shape: Vec<usize>,
-    datatype: &'a str,
-    data: T,
-}
 
-// Output from Triton Server
-#[derive(Debug, Deserialize, Clone)]
-pub struct TritonServerResponse {
-    pub name: String,
-    pub shape: Vec<usize>,
-    pub datatype: String,
-    pub data: serde_json::Value,
-}
-#[derive(Debug, Deserialize, Clone)]
-pub struct InferResponse {
-    pub outputs: Vec<TritonServerResponse>,
-}
 
 // Output forwarded to user
 #[derive(Debug)]
@@ -63,18 +45,18 @@ impl TritonRestClient {
         infer_input: &'a InferInput,
     ) -> InferInputPayload<'a, serde_json::Value> {
         let (datatype, data_json) = match &infer_input.input_data {
-            InferData::Bool(v) => ("BOOL", serde_json::json!(v)),
-            InferData::U8(v) => ("UINT8", serde_json::json!(v)),
-            InferData::U16(v) => ("UINT16", serde_json::json!(v)),
-            InferData::U64(v) => ("UINT64", serde_json::json!(v)),
-            InferData::I8(v) => ("INT8", serde_json::json!(v)),
-            InferData::I16(v) => ("INT16", serde_json::json!(v)),
-            InferData::I32(v) => ("INT32", serde_json::json!(v)),
-            InferData::I64(v) => ("INT64", serde_json::json!(v)),
-            InferData::F32(v) => ("FP32", serde_json::json!(v)),
-            InferData::F64(v) => ("FP64", serde_json::json!(v)),
-            InferData::String(v) => ("STRING", serde_json::json!(v)),
-            InferData::Bf16(v) => ("BF16", serde_json::json!(v)),
+            DataType::Bool(v) => ("BOOL", serde_json::json!(v)),
+            DataType::U8(v) => ("UINT8", serde_json::json!(v)),
+            DataType::U16(v) => ("UINT16", serde_json::json!(v)),
+            DataType::U64(v) => ("UINT64", serde_json::json!(v)),
+            DataType::I8(v) => ("INT8", serde_json::json!(v)),
+            DataType::I16(v) => ("INT16", serde_json::json!(v)),
+            DataType::I32(v) => ("INT32", serde_json::json!(v)),
+            DataType::I64(v) => ("INT64", serde_json::json!(v)),
+            DataType::F32(v) => ("FP32", serde_json::json!(v)),
+            DataType::F64(v) => ("FP64", serde_json::json!(v)),
+            DataType::String(v) => ("STRING", serde_json::json!(v)),
+            DataType::Bf16(v) => ("BF16", serde_json::json!(v)),
         };
 
         InferInputPayload {

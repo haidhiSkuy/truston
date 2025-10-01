@@ -1,5 +1,4 @@
 pub mod client;
-pub mod models;
 pub mod utils;
 
 use tracing_subscriber;
