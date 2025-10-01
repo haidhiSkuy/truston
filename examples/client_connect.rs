@@ -1,15 +1,15 @@
-use truston::client::{self, triton_client::TritonClient}; 
-use tokio; 
+use tokio;
+use truston::client::{self, triton_client::TritonClient};
 use truston::init_tracing;
 
 #[tokio::main]
-async fn main(){
+async fn main() {
     init_tracing();
 
-    let my_client = client::triton_client::TritonRestClient::new("http://localhost:50000"); 
+    let my_client = client::triton_client::TritonRestClient::new("http://localhost:50000");
     let is_alive = my_client.is_server_live().await;
     match is_alive {
         Ok(_) => println!("Server is live!"),
-        Err(e) => println!("error: {:#?}", e), 
-    } 
+        Err(e) => println!("error: {:#?}", e),
+    }
 }
