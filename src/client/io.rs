@@ -1,12 +1,48 @@
 //! Inference operations for Triton Inference Server.
 //!
-//! This module implements the core inference functionality, including
-//! input preparation, request serialization, and output parsing.
+//! This module implements the core inference functionality for interacting
+//! with a Triton Inference Server instance. It provides:
+//! - Input preparation (`InferInput` serialization).
+//! - Request/response handling (`infer`).
+//! - Output parsing into strongly typed Rust enums via [`DataType`].
+//!
+//! The [`DataType`] enum represents typed inference outputs returned
+//! by Triton. Each variant corresponds to a supported Triton datatype.
 
 use ndarray::ArrayD;
 use serde::{Deserialize, Serialize};
 
-// ################ INPUT #######################
+/// Represents a typed output tensor returned from a Triton model inference.
+///
+/// Each variant corresponds to one of the supported Triton datatypes,
+/// wrapping the tensor values in a Rust-native type.  
+/// If a response contains a datatype not explicitly handled,
+/// the raw JSON will be stored in [`DataType::Raw`].
+///
+/// # Variants
+/// - [`DataType::Bool(Vec<bool>)`] — Boolean outputs (`BOOL`).
+/// - [`DataType::U8(Vec<u8>)`] — Unsigned 8-bit integers (`UINT8`).
+/// - [`DataType::U16(Vec<u16>)`] — Unsigned 16-bit integers (`UINT16`).
+/// - [`DataType::U64(Vec<u64>)`] — Unsigned 64-bit integers (`UINT64`).
+/// - [`DataType::I8(Vec<i8>)`] — Signed 8-bit integers (`INT8`).
+/// - [`DataType::I16(Vec<i16>)`] — Signed 16-bit integers (`INT16`).
+/// - [`DataType::I32(Vec<i32>)`] — Signed 32-bit integers (`INT32`).
+/// - [`DataType::I64(Vec<i64>)`] — Signed 64-bit integers (`INT64`).
+/// - [`DataType::F32(Vec<f32>)`] — 32-bit floats (`FP32`).
+/// - [`DataType::F64(Vec<f64>)`] — 64-bit floats (`FP64`).
+/// - [`DataType::String(Vec<String>)`] — UTF-8 encoded strings (`STRING`).
+/// - [`DataType::Bf16(Vec<u16>)`] — Brain floating point 16 (`BF16`), represented as raw `u16`.
+/// - [`DataType::Raw(serde_json::Value)`] — Fallback for unrecognized datatypes; holds raw JSON.
+///
+/// # Example
+/// ```ignore
+/// match output.data {
+///     DataType::F32(values) => println!("Float tensor: {:?}", values),
+///     DataType::String(values) => println!("String tensor: {:?}", values),
+///     DataType::Raw(v) => eprintln!("Unrecognized output: {:?}", v),
+///     _ => {}
+/// }
+/// ```
 #[derive(Debug, Clone)]
 pub enum DataType {
     Bool(Vec<bool>),
@@ -24,7 +60,24 @@ pub enum DataType {
     Raw(serde_json::Value),
 }
 
+
 impl DataType {
+
+    /// Returns the Triton Inference Server datatype string corresponding to this variant.
+    ///
+    /// # Returns
+    /// A static string slice matching Triton's datatype names, e.g.:
+    /// - `"FP32"` for [`DataType::F32`]
+    /// - `"INT64"` for [`DataType::I64`]
+    /// - `"STRING"` for [`DataType::String`]
+    /// - `"none"` for [`DataType::Raw`]
+    ///
+    /// # Example
+    /// ```
+    /// use truston::DataType;
+    /// let dtype = DataType::F32(vec![0.1, 0.2]);
+    /// assert_eq!(dtype.get_type_str(), "FP32");
+    /// ```
     pub fn get_type_str(&self) -> &'static str {
         match self {
             DataType::Bool(_) => "BOOL",
@@ -42,7 +95,22 @@ impl DataType {
             DataType::Raw(_) => "none"
         }
     }
-    // vec
+    
+    /// Attempts to extract the underlying values as a `Vec<u8>`.
+    ///
+    /// # Returns
+    /// - `Some(Vec<u8>)` if this is a [`DataType::U8`] variant.
+    /// - `None` otherwise.
+    ///
+    /// # Example
+    /// ```
+    /// use truston::DataType;
+    /// let dtype = DataType::U8(vec![1, 2, 3]);
+    /// assert_eq!(dtype.as_u8_vec(), Some(vec![1, 2, 3]));
+    ///
+    /// let dtype = DataType::F32(vec![0.1, 0.2]);
+    /// assert_eq!(dtype.as_u8_vec(), None);
+    /// ```
     pub fn as_u8_vec(&self) -> Option<Vec<u8>> {
         if let DataType::U8(v) = self {
             Some(v.to_vec())
@@ -128,7 +196,19 @@ impl DataType {
         }
     }   
 
-    // Ndarray
+    /// Convert `DataType::Bool` into an `ndarray::ArrayD<bool>` with the given shape.
+    ///
+    /// # Arguments
+    /// * `shape` - The shape of the target ndarray.
+    ///
+    /// # Returns
+    /// * `Some(ArrayD<bool>)` if the variant is `Bool`
+    /// * `None` otherwise
+    ///
+    /// # Notes
+    /// - This is a straightforward conversion for MVP1.
+    /// - In future versions (MVP2), this will be optimized using macros/traits
+    ///   to reduce boilerplate and improve maintainability.
     pub fn to_ndarray_bool(&self, shape: &[usize]) -> Option<ArrayD<bool>> {
         if let DataType::Bool(v) = self {
             ArrayD::from_shape_vec(shape, v.clone()).ok()
@@ -136,6 +216,11 @@ impl DataType {
             None
         }
     }
+
+    /// Convert `DataType::U8` into an `ndarray::ArrayD<u8>`.
+    ///
+    /// Same notes as [`to_ndarray_bool`]: MVP1 implementation, planned
+    /// optimization in MVP2.
     pub fn to_ndarray_u8(&self, shape: &[usize]) -> Option<ArrayD<u8>> {
         if let DataType::U8(v) = self {
             ArrayD::from_shape_vec(shape, v.clone()).ok()
@@ -143,6 +228,10 @@ impl DataType {
             None
         }
     }
+
+    // Convert `DataType::U16` into an `ndarray::ArrayD<u16>`.
+    ///
+    /// Straightforward MVP1 implementation. Will be macro-driven in MVP2.
     pub fn to_ndarray_u16(&self, shape: &[usize]) -> Option<ArrayD<u16>> {
         if let DataType::U16(v) = self {
             ArrayD::from_shape_vec(shape, v.clone()).ok()
@@ -150,6 +239,10 @@ impl DataType {
             None
         }
     }
+
+    // Convert `DataType::U64` into an `ndarray::ArrayD<u64>`.
+    ///
+    /// Straightforward MVP1 implementation. Will be macro-driven in MVP2.
     pub fn to_ndarray_u64(&self, shape: &[usize]) -> Option<ArrayD<u64>> {
         if let DataType::U64(v) = self {
             ArrayD::from_shape_vec(shape, v.clone()).ok()
@@ -157,6 +250,10 @@ impl DataType {
             None
         }
     }
+
+    // Convert `DataType::I8` into an `ndarray::ArrayD<i8>`.
+    ///
+    /// Straightforward MVP1 implementation. Will be macro-driven in MVP2.
     pub fn to_ndarray_i8(&self, shape: &[usize]) -> Option<ArrayD<i8>> {
         if let DataType::I8(v) = self {
             ArrayD::from_shape_vec(shape, v.clone()).ok()
@@ -164,6 +261,10 @@ impl DataType {
             None
         }
     }
+
+    // Convert `DataType::i16` into an `ndarray::ArrayD<i16>`.
+    ///
+    /// Straightforward MVP1 implementation. Will be macro-driven in MVP2.
     pub fn to_ndarray_i16(&self, shape: &[usize]) -> Option<ArrayD<i16>> {
         if let DataType::I16(v) = self {
             ArrayD::from_shape_vec(shape, v.clone()).ok()
@@ -171,6 +272,10 @@ impl DataType {
             None
         }
     }
+
+    // Convert `DataType::i32` into an `ndarray::ArrayD<i32>`.
+    ///
+    /// Straightforward MVP1 implementation. Will be macro-driven in MVP2.
     pub fn to_ndarray_i32(&self, shape: &[usize]) -> Option<ArrayD<i32>> {
         if let DataType::I32(v) = self {
             ArrayD::from_shape_vec(shape, v.clone()).ok()
@@ -178,6 +283,10 @@ impl DataType {
             None
         }
     }
+
+    // Convert `DataType::i64` into an `ndarray::ArrayD<i64>`.
+    ///
+    /// Straightforward MVP1 implementation. Will be macro-driven in MVP2.
     pub fn to_ndarray_i64(&self, shape: &[usize]) -> Option<ArrayD<i64>> {
         if let DataType::I64(v) = self {
             ArrayD::from_shape_vec(shape, v.clone()).ok()
@@ -185,6 +294,10 @@ impl DataType {
             None
         }
     }
+
+    // Convert `DataType::F32` into an `ndarray::ArrayD<f32>`.
+    ///
+    /// Straightforward MVP1 implementation. Will be macro-driven in MVP2.
     pub fn to_ndarray_f32(&self, shape: &[usize]) -> Option<ArrayD<f32>> {
         if let DataType::F32(v) = self {
             ArrayD::from_shape_vec(shape, v.clone()).ok()
@@ -192,6 +305,10 @@ impl DataType {
             None
         }
     }
+
+    // Convert `DataType::F64` into an `ndarray::ArrayD<f64>`.
+    ///
+    /// Straightforward MVP1 implementation. Will be macro-driven in MVP2.
     pub fn to_ndarray_f64(&self, shape: &[usize]) -> Option<ArrayD<f64>> {
         if let DataType::F64(v) = self {
             ArrayD::from_shape_vec(shape, v.clone()).ok()
@@ -199,6 +316,10 @@ impl DataType {
             None
         }
     }
+
+    // Convert `DataType::String` into an `ndarray::ArrayD<String>`.
+    ///
+    /// Straightforward MVP1 implementation. Will be macro-driven in MVP2.
     pub fn to_ndarray_string(&self, shape: &[usize]) -> Option<ArrayD<String>> {
         if let DataType::String(v) = self {
             ArrayD::from_shape_vec(shape, v.clone()).ok()
@@ -206,6 +327,10 @@ impl DataType {
             None
         }
     }
+
+    // Convert `DataType::Bf16` into an `ndarray::ArrayD<u16>`.
+    ///
+    /// Straightforward MVP1 implementation. Will be macro-driven in MVP2.
     pub fn to_ndarray_bf16(&self, shape: &[usize]) -> Option<ArrayD<u16>> {
         if let DataType::Bf16(v) = self {
             ArrayD::from_shape_vec(shape, v.clone()).ok()
@@ -216,7 +341,30 @@ impl DataType {
 
 }
 
+/// A convenience trait for converting common Rust collection types
+/// into the corresponding [`DataType`] variants used for inference.
+///
+/// This trait is implemented for `Vec<T>` where `T` matches a supported
+/// Triton Inference Server datatype (e.g., `bool`, integers, floats, `String`).
+///
+/// # Example
+/// ```
+/// use truston::client::io::{IntoInferData, DataType};
+///
+/// let floats: Vec<f32> = vec![0.1, 0.2, 0.3];
+/// let dtype: DataType = floats.into_infer_data();
+/// assert_eq!(dtype.get_type_str(), "FP32");
+///
+/// let labels: Vec<String> = vec!["cat".into(), "dog".into()];
+/// let dtype: DataType = labels.into_infer_data();
+/// assert_eq!(dtype.get_type_str(), "STRING");
+/// ```
+///
+/// # Notes
+/// - MVP1 implementation: implemented manually for each `Vec<T>`.
+/// - MVP2 plan: reduce boilerplate with macros or blanket impls.
 pub trait IntoInferData {
+    /// Convert the collection into a [`DataType`] variant.
     fn into_infer_data(self) -> DataType;
 }
 
@@ -277,12 +425,48 @@ impl IntoInferData for Vec<String> {
 }
 
 
+/// Represents a single input tensor for inference requests.
+///
+/// `InferInput` bundles together:
+/// - the **input name** (as expected by the model),
+/// - the **input shape** (tensor dimensions),
+/// - and the **input data** (wrapped in [`DataType`]).
+///
+/// # Examples
+///
+/// Creating manually:
+/// ```
+/// use your_crate::io::{InferInput, DataType};
+///
+/// let input = InferInput::new(
+///     "input_tensor".into(),
+///     vec![2, 2],
+///     DataType::F32(vec![0.1, 0.2, 0.3, 0.4]),
+/// );
+/// assert_eq!(input.input_shape, vec![2, 2]);
+/// ```
+///
+/// Creating directly from an ndarray:
+/// ```
+/// use ndarray::array;
+/// use your_crate::io::InferInput;
+///
+/// let arr = array![[1.0f32, 2.0], [3.0, 4.0]].into_dyn();
+/// let input = InferInput::from_ndarray("matrix_input", arr);
+/// assert_eq!(input.input_shape, vec![2, 2]);
+/// ```
+///
+/// # Notes
+/// - **MVP1**: only `ArrayD<T>` with `Vec<T>: IntoInferData` is supported.
+/// - **MVP2**: future versions may support zero-copy or borrowed buffers
+///   for better performance.
 #[derive(Debug)]
 pub struct InferInput {
     pub input_name: String,
     pub input_shape: Vec<usize>, 
     pub input_data: DataType,
 }
+
 
 impl InferInput {
     pub fn new(
@@ -313,11 +497,39 @@ impl InferInput {
 }
 
 // ######################## TRITON REQUEST #############################
+/// Represents an inference request to Triton Inference Server.
+///
+/// The request bundles multiple [`InferInputPayload`]s, each describing
+/// one model input tensor. This structure is serialized to JSON before
+/// being sent via HTTP.
+///
+/// # Notes
+/// - The generic type parameter `T` allows flexibility for the input data
+///   representation (e.g. Vecs, slices, etc.).
+/// - **MVP1**: Data is always cloned into JSON-friendly structures.
+/// - **MVP2**: Could add zero-copy or shared-buffer support.
 #[derive(Serialize)]
 pub struct InferRequest<'a, T> {
     pub inputs: Vec<InferInputPayload<'a, T>>,
 }
 
+/// Represents a single input payload entry in an inference request.
+///
+/// Includes:
+/// - `name`: the tensor name, must match the model definition.
+/// - `shape`: dimensions of the tensor.
+/// - `datatype`: Triton-compatible datatype string (e.g. `"FP32"`, `"INT64"`).
+/// - `data`: the raw input data (usually a Vec or slice).
+///
+/// # Example JSON
+/// ```json
+/// {
+///   "name": "input_tensor",
+///   "shape": [2, 2],
+///   "datatype": "FP32",
+///   "data": [0.1, 0.2, 0.3, 0.4]
+/// }
+/// ```
 #[derive(Serialize)]
 pub struct InferInputPayload<'a, T> {
     pub name: &'a str,
@@ -326,6 +538,13 @@ pub struct InferInputPayload<'a, T> {
     pub data: T,
 }
 
+/// Represents a single output returned by Triton.
+///
+/// This structure mirrors the server’s JSON response.
+/// - `name`: the output tensor name.
+/// - `shape`: dimensions of the output tensor.
+/// - `datatype`: datatype string, e.g. `"FP32"`.
+/// - `data`: raw data as `serde_json::Value` (to be converted later).
 #[derive(Debug, Deserialize, Clone)]
 pub struct TritonServerResponse {
     pub name: String,
@@ -333,13 +552,43 @@ pub struct TritonServerResponse {
     pub datatype: String,
     pub data: serde_json::Value,
 }
+
+/// Represents the full inference response returned by Triton.
+///
+/// Usually contains multiple output tensors under `outputs`.
 #[derive(Debug, Deserialize, Clone)]
 pub struct InferResponse {
     pub outputs: Vec<TritonServerResponse>,
 }
 
 
-// ####################### Output forwarded to user ######################
+
+/// Represents a single output tensor after being parsed and converted
+/// from a raw [`TritonServerResponse`].
+///
+/// Unlike the raw server response (which stores `data` as JSON),
+/// this struct already wraps the data into a strongly typed [`DataType`].
+///
+/// # Fields
+/// - `name`: Name of the output tensor.
+/// - `datatype`: Triton datatype string (e.g., `"FP32"`, `"INT64"`).
+/// - `shape`: Shape of the output tensor.
+/// - `data`: Parsed and converted tensor data as [`DataType`].
+///
+/// # Example
+/// ```
+/// use truston::client::io::{InferOutput, DataType};
+///
+/// let output = InferOutput {
+///     name: "probabilities".into(),
+///     datatype: "FP32".into(),
+///     shape: vec![1, 3],
+///     data: DataType::F32(vec![0.1, 0.7, 0.2]),
+/// };
+///
+/// assert_eq!(output.shape, vec![1, 3]);
+/// assert_eq!(output.datatype, "FP32");
+/// ```
 #[derive(Debug, Clone)]
 pub struct InferOutput {
     pub name: String,
@@ -348,10 +597,32 @@ pub struct InferOutput {
     pub data: DataType,
 }
 
+/// Represents the collection of all output tensors returned from
+/// a single inference request.
+///
+/// Usually obtained after calling the high-level `infer(...)` API.
+/// Wraps a vector of [`InferOutput`] for convenience.
+///
+/// # Example
+/// ```
+/// use truston::client::io::{InferResults, InferOutput, DataType};
+///
+/// let results = InferResults {
+///     outputs: vec![InferOutput {
+///         name: "predictions".into(),
+///         datatype: "INT64".into(),
+///         shape: vec![1],
+///         data: DataType::I64(vec![42]),
+///     }],
+/// };
+///
+/// assert_eq!(results.outputs.len(), 1);
+/// ```
 #[derive(Debug, Clone)]
 pub struct InferResults {
     pub outputs: Vec<InferOutput>, 
 }
+
 
 
 // ######################## UNIT TEST ###################

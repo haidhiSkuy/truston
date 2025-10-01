@@ -116,9 +116,61 @@ impl TritonRestClient {
         }
     }
 
-    /// Converts Triton's JSON response data to a typed Rust vector.
+    /// Convert the output data from a Triton server response into a vector of numeric values.
     ///
-    /// This is an internal method that uses `NumCast` for safe numeric conversions.
+    /// This function attempts to parse the raw JSON `data` field returned by the Triton Inference Server
+    /// into a strongly-typed `Vec<T>`, where `T` implements [`NumCast`].  
+    /// It supports multiple Triton output datatypes (`FP32`, `INT64`, `BOOL`, etc.)
+    /// and automatically casts the values into the requested type.
+    ///
+    /// # Type Parameters
+    /// * `T: NumCast` - The target numeric type (e.g., `f32`, `f64`, `i32`, `u64`, etc.).
+    ///
+    /// # Arguments
+    /// * `output_data` - A reference to a [`TritonServerResponse`] containing the model output.
+    ///
+    /// # Supported Datatypes
+    /// - Floating point: `"FP32"`, `"FP64"` → parsed as `f64` then cast into `T`.
+    /// - Unsigned integers: `"UINT8"`, `"UINT16"`, `"UINT32"`, `"UINT64"` → parsed as `u64` then cast.
+    /// - Signed integers: `"INT8"`, `"INT16"`, `"INT32"`, `"INT64"` → parsed as `i64` then cast.
+    /// - Boolean: `"BOOL"` → parsed as `bool`, then converted to `0` or `1` (`u8`) before casting.
+    /// - Anything else returns `None`.
+    ///
+    /// # Returns
+    /// * `Some(Vec<T>)` if the datatype is supported and the cast succeeds.
+    /// * `None` if the datatype is unsupported or the JSON field is invalid.
+    ///
+    /// # Behavior
+    /// - Iterates over the JSON array inside `data`.
+    /// - Uses `filter_map` twice:
+    ///   1. To parse the JSON into a base type (`f64`, `i64`, `u64`, or `bool`).
+    ///   2. To cast the parsed value into the target type `T`.
+    /// - Invalid entries or failed casts are skipped silently.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let response: TritonServerResponse = client.infer(...).await?;
+    ///
+    /// // Convert float output
+    /// if let Some(values) = my_client.convert_output::<f32>(&response) {
+    ///     println!("Model float output: {:?}", values);
+    /// }
+    ///
+    /// // Convert integer output
+    /// if let Some(values) = my_client.convert_output::<i64>(&response) {
+    ///     println!("Model int output: {:?}", values);
+    /// }
+    ///
+    /// // Convert boolean output
+    /// if let Some(values) = my_client.convert_output::<u8>(&response) {
+    ///     println!("Model bool output (as 0/1): {:?}", values);
+    /// }
+    /// ```
+    ///
+    /// # Notes
+    /// - The function does not fail hard: if a single element in the array fails parsing/casting,
+    ///   it is skipped, but the rest of the vector is still returned.
+    /// - For non-numeric outputs like `"STRING"`, use [`convert_output_string`] instead.
     fn convert_output<T: NumCast>(&self, output_data: &TritonServerResponse) -> Option<Vec<T>> {
         match output_data.datatype.as_str() {
             "FP32" | "FP64" => output_data.data.as_array().map(|arr| {
@@ -148,6 +200,39 @@ impl TritonRestClient {
             _ => None,
         }
     }
+
+    /// Convert the output data from a Triton server response into a vector of strings.
+    ///
+    /// # Arguments
+    /// * `output_data` - A reference to a [`TritonServerResponse`] object that contains
+    ///   the inference result returned by the Triton Inference Server.
+    ///
+    /// # Returns
+    /// * `Some(Vec<String>)` if:
+    ///   - The `datatype` of the output is `"STRING"`.
+    ///   - The `data` field can be parsed as an array of string values.
+    /// * `None` if the `datatype` is not `"STRING"` or the data is not an array of strings.
+    ///
+    /// # Behavior
+    /// - When the datatype is `"STRING"`, this function attempts to parse the `data`
+    ///   field as an array of JSON values and filter out only the valid string entries.
+    /// - Non-string entries inside the array will be ignored (they are skipped using
+    ///   `filter_map`).
+    ///
+    /// # Example
+    /// ```ignore
+    /// let response: TritonServerResponse = client.infer(...).await?;
+    /// if let Some(strings) = my_client.convert_output_string(&response) {
+    ///     println!("Model output: {:?}", strings);
+    /// } else {
+    ///     println!("No valid string output found.");
+    /// }
+    /// ```
+    ///
+    /// # Notes
+    /// - This helper is only meaningful for Triton model outputs with `datatype = "STRING"`.
+    /// - For numeric outputs (e.g., `"FP32"`, `"INT64"`), consider using a different
+    ///   converter function.
     fn convert_output_string(&self, output_data: &TritonServerResponse) -> Option<Vec<String>> {
         match output_data.datatype.as_str() {
             "STRING" => output_data.data.as_array().map(|arr| {
@@ -159,7 +244,55 @@ impl TritonRestClient {
         }
     }
 
-
+    /// Perform an inference request to the Triton Inference Server.
+    ///
+    /// This method sends a `POST` request to the Triton server's
+    /// `/v2/models/{model_name}/infer` endpoint with the provided input tensors,
+    /// waits for the response, parses it into structured outputs, and converts the
+    /// raw response data into strongly-typed [`InferResults`].
+    ///
+    /// # Arguments
+    /// * `inputs` - A list of [`InferInput`] objects representing the input tensors
+    ///   (name, datatype, shape, and values) that will be sent to the model.
+    /// * `model_name` - The name of the deployed model to query on the Triton server.
+    ///
+    /// # Returns
+    /// * `Ok(InferResults)` - On success, containing a vector of [`InferOutput`] entries.
+    /// * `Err(TrustonError)` - On failure, with possible variants:
+    ///   - [`TrustonError::InferenceError`] if the server returned a non-2xx response
+    ///     (includes the error body if available).
+    ///   - [`TrustonError::ParseError`] if the response could not be deserialized into [`InferResponse`].
+    ///   - Any other error bubbled up from the HTTP client (e.g., connection failure).
+    ///
+    /// # Supported Datatypes
+    /// The server response is parsed into [`DataType`] variants depending on `datatype`:
+    /// - `"UINT8"`, `"UINT16"`, `"UINT64"` → parsed into [`DataType::U8`], [`DataType::U16`], [`DataType::U64`]
+    /// - `"INT8"`, `"INT16"`, `"INT32"`, `"INT64"` → parsed into [`DataType::I8`], [`DataType::I16`], [`DataType::I32`], [`DataType::I64`]
+    /// - `"FP32"`, `"FP64"` → parsed into [`DataType::F32`], [`DataType::F64`]
+    /// - `"BF16"` → parsed as `u16` and wrapped in [`DataType::Bf16`]
+    /// - `"STRING"` → parsed into [`DataType::String`]
+    /// - Any unknown datatype → stored raw in [`DataType::Raw`] with the original JSON payload.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let client = TritonRestClient::new("http://localhost:8000");
+    ///
+    /// let input = InferInput::new("input_tensor", vec![1, 16], DataType::F32, vec![0.1f32; 16]);
+    ///
+    /// match client.infer(vec![input], "my_model").await {
+    ///     Ok(results) => {
+    ///         for out in results.outputs {
+    ///             println!("Output {}: {:?}", out.name, out.data);
+    ///         }
+    ///     }
+    ///     Err(e) => eprintln!("Inference failed: {:?}", e),
+    /// }
+    /// ```
+    ///
+    /// # Notes
+    /// - Automatically converts JSON output values into the appropriate Rust types.
+    /// - If conversion fails for a particular value, it will be skipped silently.
+    /// - Any datatype not explicitly supported will be returned as raw JSON via `DataType::Raw`.
     pub async fn infer(
         &self,
         inputs: Vec<InferInput>,
