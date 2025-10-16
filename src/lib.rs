@@ -16,7 +16,7 @@
 //! ## Quick Start
 //!
 //! ```no_run
-//! use truston::client::triton_client::TritonRestClient;
+//! use truston::client::http::TritonRestClient;
 //! use truston::client::io::InferInput;
 //! use ndarray::ArrayD;
 //!
@@ -73,7 +73,7 @@
 //! ## Handling Outputs
 //!
 //! ```no_run
-//! # use truston::client::triton_client::TritonRestClient;
+//! # use truston::client::http::TritonRestClient;
 //! # use truston::client::io::InferInput;
 //! # use ndarray::ArrayD;
 //! # #[tokio::main]
@@ -120,7 +120,7 @@
 //! All operations return `Result<T, TrustonError>` for proper error handling:
 //!
 //! ```no_run
-//! # use truston::client::triton_client::TritonRestClient;
+//! # use truston::client::http::TritonRestClient;
 //! # use truston::utils::errors::TrustonError;
 //! # #[tokio::main]
 //! # async fn main() {
@@ -149,7 +149,7 @@ pub mod client;
 pub mod utils;
 
 // Re-export commonly used items for convenience
-pub use client::triton_client::{TritonClient, TritonRestClient};
+pub use client::http::{TritonClient, TritonRestClient};
 pub use client::io::{DataType, InferInput, InferOutput, InferResults};
 pub use utils::errors::TrustonError;
 

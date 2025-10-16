@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use ndarray::{ArrayD, IxDyn};
 use tokio;
-use truston::client::triton_client::TritonRestClient;
+use truston::client::http::TritonRestClient;
 use truston::client::io::InferInput;
 use truston::utils::errors::TrustonError;
 

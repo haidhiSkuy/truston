@@ -1,5 +1,5 @@
 use tokio;
-use truston::client::triton_client::TritonRestClient;
+use truston::client::http::TritonRestClient;
 use truston::init_tracing;
 
 #[tokio::main]

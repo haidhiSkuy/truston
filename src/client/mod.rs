@@ -1,2 +1,2 @@
 pub mod io;
-pub mod triton_client;
+pub mod http;
