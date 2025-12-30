@@ -106,7 +106,7 @@ impl TritonRestClient {
             DataType::I64(v) => ("INT64", serde_json::json!(v)),
             DataType::F32(v) => ("FP32", serde_json::json!(v)),
             DataType::F64(v) => ("FP64", serde_json::json!(v)),
-            DataType::String(v) => ("STRING", serde_json::json!(v)),
+            DataType::String(v) => ("BYTES", serde_json::json!(v)),
             DataType::Bf16(v) => ("BF16", serde_json::json!(v)),
             DataType::Raw(v) => ("none", serde_json::json!(v)),
         };
