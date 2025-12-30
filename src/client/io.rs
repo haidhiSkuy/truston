@@ -90,7 +90,7 @@ impl DataType {
             DataType::I64(_) => "INT64",
             DataType::F32(_) => "FP32",
             DataType::F64(_) => "FP64",
-            DataType::String(_) => "STRING",
+            DataType::String(_) => "BYTES",
             DataType::Bf16(_) => "BF16",
             DataType::Raw(_) => "none"
         }
@@ -645,7 +645,7 @@ mod tests {
         assert_eq!(DataType::I64(vec![1000]).get_type_str(), "INT64");
         assert_eq!(DataType::F32(vec![1.5]).get_type_str(), "FP32");
         assert_eq!(DataType::F64(vec![3.14]).get_type_str(), "FP64");
-        assert_eq!(DataType::String(vec!["hello".into()]).get_type_str(), "STRING");
+        assert_eq!(DataType::String(vec!["hello".into()]).get_type_str(), "BYTES");
         assert_eq!(DataType::Bf16(vec![0u16, 1u16]).get_type_str(), "BF16");
         assert_eq!(DataType::Raw(serde_json::json!({})).get_type_str(), "none");
     }
