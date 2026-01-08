@@ -106,7 +106,7 @@ impl TritonRestClient {
             DataType::I64(v) => ("INT64", serde_json::json!(v)),
             DataType::F32(v) => ("FP32", serde_json::json!(v)),
             DataType::F64(v) => ("FP64", serde_json::json!(v)),
-            DataType::String(v) => ("STRING", serde_json::json!(v)),
+            DataType::String(v) => ("BYTES", serde_json::json!(v)),
             DataType::Bf16(v) => ("BF16", serde_json::json!(v)),
             DataType::Raw(v) => ("none", serde_json::json!(v)),
         };
@@ -238,7 +238,7 @@ impl TritonRestClient {
     ///   converter function.
     fn convert_output_string(&self, output_data: &TritonServerResponse) -> Option<Vec<String>> {
         match output_data.datatype.as_str() {
-            "STRING" => output_data.data.as_array().map(|arr| {
+            "BYTES" => output_data.data.as_array().map(|arr| {
                 arr.iter()
                     .filter_map(|item| item.as_str().map(|s| s.to_string()))
                     .collect()
@@ -340,7 +340,7 @@ impl TritonRestClient {
                 "FP32" => self.convert_output::<f32>(output).map(DataType::F32),
                 "FP64" => self.convert_output::<f64>(output).map(DataType::F64),
                 "BF16" => self.convert_output::<u16>(output).map(DataType::Bf16),
-                "STRING" => self.convert_output_string(output).map(DataType::String), 
+                "BYTES" => self.convert_output_string(output).map(DataType::String), 
             
                 _ => Some(DataType::Raw(output.data.clone())),
             };
